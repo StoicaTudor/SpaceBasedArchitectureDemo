@@ -1,0 +1,152 @@
+services:
+  zookeeper:
+    image: bitnami/zookeeper:3.9.1
+    # to survive the container restart
+    tmpfs: "/zktmp"
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: 'yes'
+    ports:
+      - "2181:2181"
+    networks:
+      - main-network
+
+  kafka1:
+    image: bitnami/kafka:3.7.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENERS: INTERNAL://:9092,EXTERNAL://0.0.0.0:29092
+      KAFKA_CFG_ADVERTISED_LISTENERS: INTERNAL://kafka1:9092,EXTERNAL://localhost:29092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: INTERNAL
+      # optional - enable topic auto create
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - kafka_data1:/bitnami/kafka
+    networks:
+      - main-network
+
+  kafka2:
+    image: bitnami/kafka:3.7.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENERS: INTERNAL://:9093,EXTERNAL://0.0.0.0:29093
+      KAFKA_CFG_ADVERTISED_LISTENERS: INTERNAL://kafka2:9093,EXTERNAL://localhost:29093
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: INTERNAL
+      # optional - enable topic auto create
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+    ports:
+      - "9093:9093"
+      - "29093:29093"
+    volumes:
+      - kafka_data2:/bitnami/kafka
+    networks:
+      - main-network
+
+  kafka3:
+    image: bitnami/kafka:3.7.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENERS: INTERNAL://:9094,EXTERNAL://0.0.0.0:29094
+      KAFKA_CFG_ADVERTISED_LISTENERS: INTERNAL://kafka3:9094,EXTERNAL://localhost:29094
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: INTERNAL
+      # optional - enable topic auto create
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: 'true'
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+    ports:
+      - "9094:9094"
+      - "29094:29094"
+    volumes:
+      - kafka_data3:/bitnami/kafka
+    networks:
+      - main-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    ports:
+      - "8079:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:9092,kafka2:9093,kafka3:9094
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+    networks:
+      - main-network
+
+  hazelcast:
+    image: hazelcast/hazelcast:5-jdk21
+    ports:
+      - "5701:5701"
+    networks:
+      - main-network  # Custom network for container communication
+  management-center:
+    image: hazelcast/management-center:6.0.0-SNAPSHOT
+    ports:
+      - "8080:8080"
+    environment:
+      - MC_DEFAULT_CLUSTER=dev
+      - MC_DEFAULT_CLUSTER_MEMBERS=hazelcast
+    networks:
+      - main-network  # Same network for proper communication
+
+  mariadb:
+    image: mariadb:noble
+    container_name: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: test
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Mount the init.sql script
+    networks:
+      - main-network
+
+#  processing-unit:
+#    build:
+#      context: ./ProcessingUnit
+#      dockerfile: ./Dockerfile
+#    ports:
+#      - "8081:8081"
+#    depends_on:
+#      - mysql
+#    environment:
+#      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/mydb
+#      SPRING_DATASOURCE_USERNAME: root
+#      SPRING_DATASOURCE_PASSWORD: rootpassword
+#    networks:
+#      - main-network
+
+volumes:
+  kafka_data1:
+    driver: local
+  kafka_data2:
+    driver: local
+  kafka_data3:
+    driver: local
+  mariadb_data:
+
+networks:
+  main-network:
+    driver: bridge
